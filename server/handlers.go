@@ -24,6 +24,8 @@ type deviceStatsResponse struct {
     AvgUploadTime string  `json:"avg_upload_time"`
 }
 
+// handleHeartbeat identifies a device to add a heartbeat to.
+// writes appropraite HTTP responses as needed
 func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	deviceId := r.PathValue(("device_id")) // extract device_id val from path
 
@@ -47,6 +49,8 @@ func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleStats identifies a device to add a stat to.
+// writes appropraite HTTP responses as needed
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	deviceId := r.PathValue(("device_id")) // extract device_id val from path
 
@@ -70,6 +74,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleGetStats identifies a device to add calculate stats for.
+// It then writes the deviceStatsResponse consisting of Uptime and AvgUploadTime
 func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
 	deviceId := r.PathValue(("device_id")) // extract device_id val from path
 
