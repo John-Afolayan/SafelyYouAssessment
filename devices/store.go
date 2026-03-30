@@ -66,3 +66,10 @@ func (d *Device) AddHeartbeat(t time.Time) {
     defer d.mu.Unlock()
     d.SentAt = append(d.SentAt, t)
 }
+
+// AddStat safely appends an upload duration to the device
+func (d *Device) AddStat(uploadTime time.Duration) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.UploadTime = append(d.UploadTime, uploadTime)
+}
