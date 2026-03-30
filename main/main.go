@@ -11,7 +11,7 @@ import (
 func main() {
 	// configure CLI flags
 	csvPath := flag.String("device_path", "devices.csv", "path to devices csv file")
-	addr := flag.String("addr", ":6733", "address to listen on")
+	addr := flag.String("addr", "127.0.0.1:6733", "address to listen on")
 	flag.Parse()
 	// load known devices from CSV into memory
 	store, err := devices.LoadFromCSV(csvPath)
