@@ -9,10 +9,11 @@ import (
 )
 
 func main() {
-	// parse for devices.csv path using flag
+	// configure CLI flags
 	csvPath := flag.String("device_path", "devices.csv", "path to devices csv file")
 	addr := flag.String("addr", ":6733", "address to listen on")
 	flag.Parse()
+	// load known devices from CSV into memory
 	store, err := devices.LoadFromCSV(csvPath)
 	if err != nil {
 		fmt.Printf("error getting store contents from CSV file: %v", err)

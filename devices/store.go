@@ -4,19 +4,24 @@ import (
 	"encoding/csv"
 	"log"
 	"os"
+	"sync"
 	"time"
 )
 
+// Device struct holds raw telemetry data collected for a single device
 type Device struct {
+	mu sync.Mutex
 	DeviceId string
 	UploadTime []time.Duration
 	SentAt []time.Time
 }
 
+// Store holds all known devices keyed by device ID
 type Store struct {
 	Devices map[string]*Device
-} 
+}
 
+// ReadCsvFile reads a CSV file and returns its raw rows
 func ReadCsvFile(csvPath *string) ([][]string, error) {
 	f, err := os.Open(*csvPath)
 	if err != nil {
@@ -35,7 +40,7 @@ func ReadCsvFile(csvPath *string) ([][]string, error) {
 	return records, nil
 }
 
-// reads the CSV and returns a populated *Store
+// LoadFromCSV reads device definitions from a CSV and returns an initialized Store
 func LoadFromCSV(csvPath *string) (*Store, error) {
 	csvContents, err := ReadCsvFile(csvPath); if err != nil {
 		log.Printf("Unable to parse file as CSV for "+*csvPath, err)
@@ -53,4 +58,11 @@ func LoadFromCSV(csvPath *string) (*Store, error) {
 		}
 	}
 	return &Store{Devices: m}, nil
+}
+
+// AddHeartbeat safely appends a heartbeat timestamp to the device
+func (d *Device) AddHeartbeat(t time.Time) {
+    d.mu.Lock()
+    defer d.mu.Unlock()
+    d.SentAt = append(d.SentAt, t)
 }
