@@ -2,27 +2,27 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
+
 	"safelyyou-assessment/devices"
 	"safelyyou-assessment/server"
 )
 
 func main() {
-	// configure CLI flags
-	csvPath := flag.String("device_path", "devices.csv", "path to devices csv file")
+	csvPath := flag.String("device_path", "devices.csv", "path to devices CSV file")
 	addr := flag.String("addr", "127.0.0.1:6733", "address to listen on")
 	flag.Parse()
-	// load known devices from CSV into memory
-	store, err := devices.LoadFromCSV(csvPath)
+
+	store, err := devices.LoadFromCSV(*csvPath)
 	if err != nil {
-		fmt.Printf("error getting store contents from CSV file: %v", err)
-	}
-	
-	log.Printf("server starting on %s", *addr)
-	s := server.New(store)
-	err = s.Run(*addr); if err != nil {
-		fmt.Printf("error starting server: %v", err)
+		log.Fatalf("failed to load devices: %v", err)
 	}
 
+	log.Printf("loaded %d devices from %s", len(store.DeviceIDs()), *csvPath)
+	log.Printf("server starting on %s", *addr)
+
+	s := server.New(store)
+	if err := s.Run(*addr); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
 }
