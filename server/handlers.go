@@ -7,94 +7,110 @@ import (
 	"time"
 )
 
-// heartbeatRequest represents the expected JSON body for POST /heartbeat
+// ---------- Request / Response types ----------
+
 type heartbeatRequest struct {
 	SentAt time.Time `json:"sent_at"`
 }
 
-// uploadStatsRequest represents the expected JSON body for POST /stats
 type uploadStatsRequest struct {
 	SentAt     time.Time `json:"sent_at"`
 	UploadTime int64     `json:"upload_time"`
 }
 
-// deviceStatsResponse represents the JSON response body for GET /stats
 type deviceStatsResponse struct {
-    Uptime        float64 `json:"uptime"`
-    AvgUploadTime string  `json:"avg_upload_time"`
+	Uptime        float64 `json:"uptime"`
+	AvgUploadTime string  `json:"avg_upload_time"`
 }
 
-// handleHeartbeat identifies a device to add a heartbeat to.
-// writes appropraite HTTP responses as needed
-func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
-	deviceId := r.PathValue(("device_id")) // extract device_id val from path
+type errorResponse struct {
+	Msg string `json:"msg"`
+}
 
-	// return 404 if device_id is not found
-	device, ok := s.store.Devices[deviceId]
+// ---------- Helpers ----------
+
+// writeJSON encodes v as JSON with the given status code.
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+
+// lookupDevice extracts device_id from the path and looks it up.
+// Returns nil and writes a 404 JSON response if the device is not found.
+func (s *Server) lookupDevice(w http.ResponseWriter, r *http.Request) *devices.Device {
+	id := r.PathValue("device_id")
+	device, ok := s.store.Lookup(id)
 	if !ok {
-		w.WriteHeader(http.StatusNotFound)
+		writeJSON(w, http.StatusNotFound, errorResponse{
+			Msg: "device not found: " + id,
+		})
+		return nil
+	}
+	return device
+}
+
+// ---------- Handlers ----------
+
+// handleHeartbeat registers a heartbeat for a device.
+//
+//	POST /api/v1/devices/{device_id}/heartbeat
+func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
+	device := s.lookupDevice(w, r)
+	if device == nil {
 		return
 	}
 
-	// parse json body
 	var req heartbeatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, http.StatusBadRequest, errorResponse{Msg: "invalid JSON: " + err.Error()})
 		return
 	}
 
-	// lock mutex and append timestamp
-	device.AddHeartbeat(req.SentAt)
+	if req.SentAt.IsZero() {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Msg: "sent_at is required"})
+		return
+	}
 
+	device.AddHeartbeat(req.SentAt)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleStats identifies a device to add a stat to.
-// writes appropraite HTTP responses as needed
-func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	deviceId := r.PathValue(("device_id")) // extract device_id val from path
-
-	// return 404 if device_id is not found
-	device, ok := s.store.Devices[deviceId]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
+// handlePostStats records an upload stat for a device.
+//
+//	POST /api/v1/devices/{device_id}/stats
+func (s *Server) handlePostStats(w http.ResponseWriter, r *http.Request) {
+	device := s.lookupDevice(w, r)
+	if device == nil {
 		return
 	}
 
-	// parse json body
 	var req uploadStatsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, http.StatusBadRequest, errorResponse{Msg: "invalid JSON: " + err.Error()})
 		return
 	}
 
-	// lock mutex and append upload time
-	device.AddStat(time.Duration(req.UploadTime))
+	if req.UploadTime < 0 {
+		writeJSON(w, http.StatusBadRequest, errorResponse{Msg: "upload_time must be non-negative"})
+		return
+	}
 
+	device.AddUpload(time.Duration(req.UploadTime))
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleGetStats identifies a device to add calculate stats for.
-// It then writes the deviceStatsResponse consisting of Uptime and AvgUploadTime
+// handleGetStats returns computed device statistics.
+//
+//	GET /api/v1/devices/{device_id}/stats
 func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
-	deviceId := r.PathValue(("device_id")) // extract device_id val from path
-
-	// return 404 if device_id is not found
-	device, ok := s.store.Devices[deviceId]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
+	device := s.lookupDevice(w, r)
+	if device == nil {
 		return
 	}
 
-	// calculate stats
-	uptime := devices.CalculateUptime(device)
-	avgUploadTime := devices.CalculateAvgUploadTime(device)
-
-	// write JSON response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(deviceStatsResponse {
-		Uptime: uptime,
-		AvgUploadTime: avgUploadTime,
+	writeJSON(w, http.StatusOK, deviceStatsResponse{
+		Uptime:        devices.CalculateUptime(device),
+		AvgUploadTime: devices.CalculateAvgUploadTime(device),
 	})
-
 }
