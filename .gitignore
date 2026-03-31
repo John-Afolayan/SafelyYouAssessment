@@ -1,0 +1,17 @@
+# Binary
+fleet-monitor
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage.out
+
+# Device simulator output
+results.txt
